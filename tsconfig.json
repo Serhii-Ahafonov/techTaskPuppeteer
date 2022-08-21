@@ -3,7 +3,7 @@
     "target": "esnext",
     "module": "commonjs",
     "lib": ["esnext", "dom", "dom.iterable"],
-    "outDir": "javascriptVersions",
+    "outDir": "src/js",
     "rootDir": "src/ts",
     "strict": true,
     "noUnusedLocals": true,

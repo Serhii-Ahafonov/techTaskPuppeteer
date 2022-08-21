@@ -2,17 +2,22 @@
   "name": "tech-challange",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
-  "type": "module",
+  "main": "src/js/index.js",
+  "type": "commonjs",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "tsc && node javascriptVersions/index.js"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "puppeteer": "^16.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^18.7.8",
+    "@types/puppeteer": "^5.4.6",
     "node-fetch": "^3.2.10",
     "open": "^8.4.0",
-    "puppeteer": "^16.2.0",
-    "readline": "^1.3.0"
+    "readline": "^1.3.0",
+    "typescript": "^4.7.4"
   }
 }
