@@ -1,6 +1,6 @@
-import open from "open";
-import puppeteer from'puppeteer';
-import readline from 'readline';
+const puppeteer = require("puppeteer");
+const readline = require("readline");
+const open = require("open");
 
 const input = readline.createInterface({
     input: process.stdin,
@@ -16,7 +16,7 @@ const input = readline.createInterface({
 })();
 
 async function app(genre) {
-    const browser = await puppeteer.launch({ headless: true });
+    const browser = await puppeteer.launch({});
     const page = await browser.newPage();
     const amazonBaseUrl = 'https://www.amazon.com';
     let selectedBookTitle;
@@ -45,7 +45,7 @@ async function app(genre) {
 
     for (const url of formatAndEditionUrls) {
         try {
-            await page.goto(amazonBaseUrl + url, {waitUntil: 'load', timeout: 0});
+            await page.goto(amazonBaseUrl + url);
             const cart = await page.waitForSelector('#nav-cart');
             const addToCartExists = await page.evaluate(() => !!document.querySelector('#add-to-cart-button'));
             const buyingChoicesExists = await page.evaluate(() => !!document.querySelector('#buybox-see-all-buying-choices'));
