@@ -16,74 +16,58 @@ const input = readline.createInterface({
 })();
 
 async function app(genre) {
-    const browser = await puppeteer.launch({headless: false});
+    const browser = await puppeteer.launch({headless: true});
     const page = await browser.newPage();
-    // await page.setViewport({ width: 1280, height: 800 });
+
+    //Good Reads
     await page.goto('https://www.goodreads.com/choiceawards/best-'+ genre + '-books-2020');
+    const goodReadsTitleLink = await page.waitForSelector(".winner a.winningTitle");
+    const bookTitle = await page.evaluate(el => el.textContent, goodReadsTitleLink);
 
-    const titleElement = await page.waitForSelector(".winner a.winningTitle");
-    const bookTitle = await page.evaluate(element => element.textContent, titleElement);
-
-    //Search Book
+    //Amazon
     await page.goto('https://www.amazon.com/');
     await page.type('#twotabsearchtextbox', bookTitle, { delay: 200 });
     await page.keyboard.press('Enter');
 
-    //Apply PaperBook Filter
-    // const paperBackFilter = '[aria-labelledby="p_n_feature_browse-bin-title"] > li a'
-    // await page.waitForSelector(paperBackFilter);
-    // await page.click(paperBackFilter);
-
-    //Select Top Search Result
-    const firstSearchResultTitleSelector = '.s-search-results [data-index="1"] h2 a';
-    await page.waitForSelector(firstSearchResultTitleSelector);
-    await page.click(firstSearchResultTitleSelector);
-
-    // Add To Cart Depends on
-    //
-    const format = await page.waitForSelector('li.swatchElement .a-button-inner a');
-    const bookFormats = await page.$$('li.swatchElement');
-    const bookFormatsLinks = await page.evaluate( () =>
-        Array.from(document.querySelectorAll('li.swatchElement .a-button-inner a'), element => element.href)
+    const amazonBookTitle = await page.waitForSelector('.s-search-results [data-index="1"] h2 a');
+    const amazonTitleLink = await page.evaluate(el => el.href, amazonBookTitle);
+    await page.goto(amazonTitleLink, {waitUntil: 'load', timeout: 0});
+    const formatAndEditionLinks = await page.evaluate( () =>
+        Array.from(document.querySelectorAll('li.swatchElement .a-button-inner a'), el => el.href)
     );
 
-
-
-    for (const link of bookFormatsLinks) {
+    for (const link of formatAndEditionLinks) {
         try {
             await page.goto(link, {waitUntil: 'load', timeout: 0});
             const addToCartExists = await page.evaluate(() => !!document.querySelector('#add-to-cart-button'));
             const buyingChoicesExists = await page.evaluate(() => !!document.querySelector('#buybox-see-all-buying-choices'));
 
-            console.log('buyingChoicesExists-' + buyingChoicesExists, 'addToCartExists-' + addToCartExists);
-
-            if (addToCartExists) return addToCart(page);
-            if (buyingChoicesExists) return chooseOption(page);
+            if (addToCartExists) return addToCart(browser, page);
+            if (buyingChoicesExists) return chooseOption(browser, page);
         } catch(e) {
-            console.log(e.message)
+            console.log(e.message);
         }
     }
-
-    await open(page.url());
-    browser.close();
 }
 
-async function addToCart(page) {
+async function addToCart(browser, page) {
     await page.click('#add-to-cart-button');
-    await proceedToRetailCheckout(page);
+    await proceedToRetailCheckout(browser, page);
 }
 
-async function chooseOption(page) {
+async function chooseOption(browser, page) {
     await page.click('#buybox-see-all-buying-choices');
-    await page.waitForSelector('#aod-offer-list');
-    await page.click('#aod-offer-list input + div input');
-    await page.waitForSelector('#aod-offer-list input + div form aod-view-cart-btn', { hidden: true });
+    await page.waitForSelector('#aod-offer-list div');
+    await page.click('#aod-offer-list input + div input[name="submit.addToCart"]');
+    await page.waitForSelector('#aod-offer-list input + div span.aok-hidden input[name="submit.addToCart"]');
     await page.click('#aod-offer-list input + div form input');
-    await proceedToRetailCheckout(page);
+    await proceedToRetailCheckout(browser, page);
 }
 
-async function proceedToRetailCheckout(page) {
+async function proceedToRetailCheckout(browser, page) {
     await page.waitForSelector('input[name="proceedToRetailCheckout"]');
     await page.click('input[name="proceedToRetailCheckout"]');
     await page.waitForSelector('form[name="signIn"]');
+    await open(page.url());
+    browser.close();
 }
