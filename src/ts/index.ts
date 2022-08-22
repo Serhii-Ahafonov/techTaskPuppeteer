@@ -1,5 +1,6 @@
 import * as puppeteer from 'puppeteer';
 import * as readline from 'readline';
+import {Browser, Page} from "puppeteer";
 import * as open from 'open';
 
 const input = readline.createInterface({
@@ -8,32 +9,38 @@ const input = readline.createInterface({
 });
 
 (async () => {
-    input.question('Please enter your preferred genre: ', genre => {
-        const preferredGenre = genre.toLowerCase().replace(/ /g,'').replace('&', '-');
-        app(preferredGenre);
+    const browser = await puppeteer.launch({headless: true});
+    const page = await browser.newPage();
+    await page.goto('https://www.goodreads.com/choiceawards/best-books-2020' ,{ waitUntil: 'load', timeout: 0 });
+
+    const genres = [];
+    const titles = await page.$$(".category__copy");
+    for (const title of titles) {
+        genres.push(await page.evaluate(el => el.textContent!.trim(), title));
+    }
+    console.log(genres);
+
+    input.question('Please copy your preferred genre from above list: ', genre => {
+        app(browser, page, genre);
         input.close();
     });
 })();
 
-async function app(genre: string) {
-    const browser = await puppeteer.launch({});
-    const page = await browser.newPage();
-    const amazonBaseUrl = 'https://www.amazon.com';
-    let selectedBookTitle;
 
-    try {
-        await page.goto('https://www.goodreads.com/choiceawards/best-'+ genre + '-books-2020');
-        const selectedBook = await page.waitForSelector(".winner a.winningTitle", { timeout: 5000 });
-        selectedBookTitle = await page.evaluate(el => el && el.textContent, selectedBook);
-    } catch (e) {
-        if (e instanceof puppeteer.errors.TimeoutError) {
-            console.log('Genre is not available! Please, try again!');
-            return await browser.close();
-        }
-    }
+const chooseBookTitle = async (page: Page, genre: string) => {
+    const linkHandlers = await page.$x(`//h4[contains(text(), '${genre}')] /following-sibling::div/img`);
+    // @ts-ignore
+    return await page.evaluate((el) => el.getAttribute('alt'), linkHandlers[0]);
+};
+
+async function app(browser: Browser, page: Page, genre: string) {
+    const bookTitle = await chooseBookTitle(page, genre);
+    console.log('Congratulations! Your choice is - ' + bookTitle);
+    console.log('Wait a few seconds to be redirected to Amazon checkout!');
+    const amazonBaseUrl = 'https://www.amazon.com';
 
     await page.goto(amazonBaseUrl);
-    await page.type('#twotabsearchtextbox', selectedBookTitle || genre + ' book');
+    await page.type('#twotabsearchtextbox', bookTitle || bookTitle + ' book');
     await page.keyboard.press('Enter');
 
     const amazonBookTitle = await page.waitForSelector('.s-search-results [data-index="1"] h2 a');
@@ -72,7 +79,7 @@ async function app(genre: string) {
             }
         } catch(e) {
             if (e instanceof puppeteer.errors.TimeoutError) {
-                console.log('Something went wrong! Please, try again!');
+                return console.log('Something went wrong! Please, try again!');
                 return await browser.close();
             }
         }
