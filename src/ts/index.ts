@@ -13,6 +13,8 @@ const input = readline.createInterface({
     const page = await browser.newPage();
     await page.goto('https://www.goodreads.com/choiceawards/best-books-2020' ,{ waitUntil: 'load', timeout: 0 });
 
+    console.log('Starting app ...');
+
     const genres = [];
     const titles = await page.$$(".category__copy");
     for (const title of titles) {
@@ -21,26 +23,25 @@ const input = readline.createInterface({
     console.log(genres);
 
     input.question('Please copy your preferred genre from above list: ', genre => {
-        app(browser, page, genre);
+        redirectToAmazonCheckout(browser, page, genre);
         input.close();
     });
 })();
 
 
 const chooseBookTitle = async (page: Page, genre: string) => {
-    const linkHandlers = await page.$x(`//h4[contains(text(), '${genre}')] /following-sibling::div/img`);
-    // @ts-ignore
-    return await page.evaluate((el) => el.getAttribute('alt'), linkHandlers[0]);
+    const linkHandlers = await page.$x(`//h4[contains(text(), '${genre}')] /following-sibling::div/img/@alt`);
+    return await page.evaluate((el) => el.nodeValue, linkHandlers[0]);
 };
 
-async function app(browser: Browser, page: Page, genre: string) {
+async function redirectToAmazonCheckout(browser: Browser, page: Page, genre: string) {
     const bookTitle = await chooseBookTitle(page, genre);
     console.log('Congratulations! Your choice is - ' + bookTitle);
     console.log('Wait a few seconds to be redirected to Amazon checkout!');
-    const amazonBaseUrl = 'https://www.amazon.com';
 
+    const amazonBaseUrl = 'https://www.amazon.com';
     await page.goto(amazonBaseUrl);
-    await page.type('#twotabsearchtextbox', bookTitle || bookTitle + ' book');
+    await page.type('#twotabsearchtextbox', bookTitle || genre + ' book');
     await page.keyboard.press('Enter');
 
     const amazonBookTitle = await page.waitForSelector('.s-search-results [data-index="1"] h2 a');
@@ -79,7 +80,7 @@ async function app(browser: Browser, page: Page, genre: string) {
             }
         } catch(e) {
             if (e instanceof puppeteer.errors.TimeoutError) {
-                return console.log('Something went wrong! Please, try again!');
+                console.log('Something went wrong! Please, try again!');
                 return await browser.close();
             }
         }
