@@ -8,30 +8,32 @@ const input = readline.createInterface({
     output: process.stdout
 });
 (async () => {
-    input.question('Please enter your preferred genre: ', genre => {
-        const preferredGenre = genre.toLowerCase().replace(/ /g, '').replace('&', '-');
-        app(preferredGenre);
+    const browser = await puppeteer.launch({ headless: true });
+    const page = await browser.newPage();
+    await page.goto('https://www.goodreads.com/choiceawards/best-books-2020', { waitUntil: 'load', timeout: 0 });
+    console.log('Starting app ...');
+    const genres = [];
+    const titles = await page.$$(".category__copy");
+    for (const title of titles) {
+        genres.push(await page.evaluate(el => el.textContent.trim(), title));
+    }
+    console.log(genres);
+    input.question('Please copy your preferred genre from above list: ', genre => {
+        redirectToAmazonCheckout(browser, page, genre);
         input.close();
     });
 })();
-async function app(genre) {
-    const browser = await puppeteer.launch({});
-    const page = await browser.newPage();
+const chooseBookTitle = async (page, genre) => {
+    const linkHandlers = await page.$x(`//h4[contains(text(), '${genre}')] /following-sibling::div/img/@alt`);
+    return await page.evaluate((el) => el.nodeValue, linkHandlers[0]);
+};
+async function redirectToAmazonCheckout(browser, page, genre) {
+    const bookTitle = await chooseBookTitle(page, genre);
+    console.log('Congratulations! Your choice is - ' + bookTitle);
+    console.log('Wait a few seconds to be redirected to Amazon checkout!');
     const amazonBaseUrl = 'https://www.amazon.com';
-    let selectedBookTitle;
-    try {
-        await page.goto('https://www.goodreads.com/choiceawards/best-' + genre + '-books-2020');
-        const selectedBook = await page.waitForSelector(".winner a.winningTitle", { timeout: 5000 });
-        selectedBookTitle = await page.evaluate(el => el && el.textContent, selectedBook);
-    }
-    catch (e) {
-        if (e instanceof puppeteer.errors.TimeoutError) {
-            console.log('Genre is not available! Please, try again!');
-            return await browser.close();
-        }
-    }
     await page.goto(amazonBaseUrl);
-    await page.type('#twotabsearchtextbox', selectedBookTitle || genre + ' book');
+    await page.type('#twotabsearchtextbox', bookTitle || genre + ' book');
     await page.keyboard.press('Enter');
     const amazonBookTitle = await page.waitForSelector('.s-search-results [data-index="1"] h2 a');
     const amazonBookTitleUrl = await page.evaluate(el => el.getAttribute('href'), amazonBookTitle);
